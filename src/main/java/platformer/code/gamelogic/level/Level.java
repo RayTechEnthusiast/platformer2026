@@ -60,6 +60,9 @@ public class Level {
 	}
 
 	public void restartLevel() {
+		enemiesList.clear();
+		flowers.clear();
+
 		int[][] values = mapdata.getValues();
 		Tile[][] tiles = new Tile[width][height];
 
@@ -72,10 +75,9 @@ public class Level {
 
 				tiles[x][y] = new Tile(xPosition, yPosition, tileSize, null, false, this);
 				if (values[x][y] == 0)
-					tiles[x][y] = new Tile(xPosition, yPosition, tileSize, null, false, this); // Air
+					tiles[x][y] = new Tile(xPosition, yPosition, tileSize, null, false, this);
 				else if (values[x][y] == 1)
 					tiles[x][y] = new SolidTile(xPosition, yPosition, tileSize, tileset.getImage("Solid"), this);
-
 				else if (values[x][y] == 2)
 					tiles[x][y] = new Spikes(xPosition, yPosition, tileSize, Spikes.HORIZONTAL_DOWNWARDS, this);
 				else if (values[x][y] == 3)
@@ -89,16 +91,18 @@ public class Level {
 				else if (values[x][y] == 7)
 					tiles[x][y] = new SolidTile(xPosition, yPosition, tileSize, tileset.getImage("Grass"), this);
 				else if (values[x][y] == 8)
-					enemiesList.add(new Enemy(xPosition*tileSize, yPosition*tileSize, this)); // TODO: objects vs tiles
+					enemiesList.add(new Enemy(xPosition * tileSize, yPosition * tileSize, this));
 				else if (values[x][y] == 9)
 					tiles[x][y] = new Flag(xPosition, yPosition, tileSize, tileset.getImage("Flag"), this);
 				else if (values[x][y] == 10) {
 					tiles[x][y] = new Flower(xPosition, yPosition, tileSize, tileset.getImage("Flower1"), this, 1);
 					flowers.add((Flower) tiles[x][y]);
-				} else if (values[x][y] == 11) {
+				}
+				else if (values[x][y] == 11) {
 					tiles[x][y] = new Flower(xPosition, yPosition, tileSize, tileset.getImage("Flower2"), this, 2);
 					flowers.add((Flower) tiles[x][y]);
-				} else if (values[x][y] == 12)
+				}
+				else if (values[x][y] == 12)
 					tiles[x][y] = new SolidTile(xPosition, yPosition, tileSize, tileset.getImage("Solid_down"), this);
 				else if (values[x][y] == 13)
 					tiles[x][y] = new SolidTile(xPosition, yPosition, tileSize, tileset.getImage("Solid_up"), this);
@@ -119,16 +123,17 @@ public class Level {
 				else if (values[x][y] == 21)
 					tiles[x][y] = new Water(xPosition, yPosition, tileSize, tileset.getImage("Quarter_water"), this, 1);
 			}
-
 		}
+
 		enemies = new Enemy[enemiesList.size()];
 		map = new Map(width, height, tileSize, tiles);
 		camera = new Camera(Main.SCREEN_WIDTH, Main.SCREEN_HEIGHT, 0, map.getFullWidth(), map.getFullHeight());
+
 		for (int i = 0; i < enemiesList.size(); i++) {
 			enemies[i] = new Enemy(enemiesList.get(i).getX(), enemiesList.get(i).getY(), this);
 		}
-		player = new Player(leveldata.getPlayerX() * map.getTileSize(), leveldata.getPlayerY() * map.getTileSize(),
-				this);
+
+		player = new Player(leveldata.getPlayerX() * map.getTileSize(), leveldata.getPlayerY() * map.getTileSize(), this);
 		camera.setFocusedObject(player);
 
 		active = true;
@@ -150,10 +155,8 @@ public class Level {
 
 	public void update(float tslf) {
 		if (active) {
-			// Update the player
 			player.update(tslf);
 
-			// Player death
 			if (map.getFullHeight() + 100 < player.getY())
 				onPlayerDeath();
 			if (player.getCollisionMatrix()[PhysicsObject.BOT] instanceof Spikes)
@@ -167,16 +170,13 @@ public class Level {
 
 			for (int i = 0; i < flowers.size(); i++) {
 				if (flowers.get(i).getHitbox().isIntersecting(player.getHitbox())) {
-					if(flowers.get(i).getType() == 1)
+					if (flowers.get(i).getType() == 1)
 						water(flowers.get(i).getCol(), flowers.get(i).getRow(), map, 3);
-//					else
-//						addGas(flowers.get(i).getCol(), flowers.get(i).getRow(), map, 20, new ArrayList<Gas>());
 					flowers.remove(i);
 					i--;
 				}
 			}
 
-			// Update the enemies
 			for (int i = 0; i < enemies.length; i++) {
 				enemies[i].update(tslf);
 				if (player.getHitbox().isIntersecting(enemies[i].getHitbox())) {
@@ -184,28 +184,63 @@ public class Level {
 				}
 			}
 
-			// Update the map
 			map.update(tslf);
-
-			// Update the camera
 			camera.update(tslf);
 		}
 	}
-	
-	
-	//#############################################################################################################
-	//Your code goes here! 
-	//Please make sure you read the rubric/directions carefully and implement the solution recursively!
+
+	// precondition: col and row are valid locations where water should start flowing
+	// postcondition: water is added to the map recursively following gravity and sideways flow rules
 	private void water(int col, int row, Map map, int fullness) {
-		
+		Tile[][] tiles = map.getTiles();
+
+		if (col < 0 || col >= tiles.length || row < 0 || row >= tiles[col].length) {
+			return;
+		}
+
+		if (tiles[col][row] instanceof Water || tiles[col][row].isSolid()) {
+			return;
+		}
+
+		if (row + 1 < tiles[col].length && !tiles[col][row + 1].isSolid() && !(tiles[col][row + 1] instanceof Water)) {
+			Water w = new Water(col, row, tileSize, tileset.getImage("Falling_water"), this, 0);
+			map.addTile(col, row, w);
+			water(col, row + 1, map, 0);
+			return;
+		}
+
+		if (fullness == 0) {
+			fullness = 3;
+		}
+
+		String imageName = "Full_water";
+		if (fullness == 2) {
+			imageName = "Half_water";
+		}
+		else if (fullness == 1) {
+			imageName = "Quarter_water";
+		}
+
+		Water w = new Water(col, row, tileSize, tileset.getImage(imageName), this, fullness);
+		map.addTile(col, row, w);
+
+		int nextFullness = fullness - 1;
+		if (nextFullness < 1) {
+			nextFullness = 1;
+		}
+
+		if (col + 1 < tiles.length && !tiles[col + 1][row].isSolid() && !(tiles[col + 1][row] instanceof Water)) {
+			water(col + 1, row, map, nextFullness);
+		}
+
+		if (col - 1 >= 0 && !tiles[col - 1][row].isSolid() && !(tiles[col - 1][row] instanceof Water)) {
+			water(col - 1, row, map, nextFullness);
+		}
 	}
-
-
 
 	public void draw(Graphics g) {
 		g.translate((int) -camera.getX(), (int) -camera.getY());
 
-		// Draw the map
 		for (int x = 0; x < map.getWidth(); x++) {
 			for (int y = 0; y < map.getHeight(); y++) {
 				Tile tile = map.getTiles()[x][y];
@@ -216,22 +251,18 @@ public class Level {
 			}
 		}
 
-		// Draw the enemies
 		for (int i = 0; i < enemies.length; i++) {
 			enemies[i].draw(g);
 		}
 
-		// Draw the player
 		player.draw(g);
 
-		// used for debugging
 		if (Camera.SHOW_CAMERA)
 			camera.draw(g);
 
 		g.translate((int) +camera.getX(), (int) +camera.getY());
 	}
 
-	// --------------------------Die-Listener
 	public void throwPlayerDieEvent() {
 		for (PlayerDieListener playerDieListener : dieListeners) {
 			playerDieListener.onPlayerDeath();
@@ -242,7 +273,6 @@ public class Level {
 		dieListeners.add(listener);
 	}
 
-	// ------------------------Win-Listener
 	public void throwPlayerWinEvent() {
 		for (PlayerWinListener playerWinListener : winListeners) {
 			playerWinListener.onPlayerWin();
@@ -253,7 +283,6 @@ public class Level {
 		winListeners.add(listener);
 	}
 
-	// ---------------------------------------------------------Getters
 	public boolean isActive() {
 		return active;
 	}
