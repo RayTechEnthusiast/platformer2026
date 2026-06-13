@@ -10,17 +10,20 @@ import platformer.code.gamelogic.Main;
 import platformer.code.gamelogic.level.Level;
 import platformer.code.gamelogic.tiles.Tile;
 
-public class Player extends PhysicsObject{
+public class Player extends PhysicsObject {
 	public float walkSpeed = 400;
 	public float jumpPower = 1350;
+	public float speedMultiplier = 1;
+	public boolean gasFloating = false;
+	public float gasLiftSpeed = 200;
 
-	private boolean isJumping = false;
+	private int jumpsLeft = 2;
+	private boolean jumpWasDown = false;
 
 	public Player(float x, float y, Level level) {
-	
 		super(x, y, level.getLevelData().getTileSize(), level.getLevelData().getTileSize(), level);
-		int offset =(int)(level.getLevelData().getTileSize()*0.1); //hitbox is offset by 10% of the player size.
-		this.hitbox = new RectHitbox(this, offset,offset, width -offset, height - offset);
+		int offset = (int)(level.getLevelData().getTileSize() * 0.1);
+		this.hitbox = new RectHitbox(this, offset, offset, width - offset, height - offset);
 	}
 
 	@Override
@@ -28,19 +31,32 @@ public class Player extends PhysicsObject{
 		super.update(tslf);
 		
 		movementVector.x = 0;
-		if(PlayerInput.isLeftKeyDown()) {
-			movementVector.x = -walkSpeed;
+
+		if (PlayerInput.isLeftKeyDown()) {
+			movementVector.x = -walkSpeed * speedMultiplier;
 		}
-		if(PlayerInput.isRightKeyDown()) {
-			movementVector.x = +walkSpeed;
+
+		if (PlayerInput.isRightKeyDown()) {
+			movementVector.x = walkSpeed * speedMultiplier;
 		}
-		if(PlayerInput.isJumpKeyDown() && !isJumping) {
+
+		if (gasFloating) {
+			movementVector.y = -gasLiftSpeed;
+		}
+
+		if (collisionMatrix[BOT] != null) {
+			jumpsLeft = 2;
+		}
+
+		boolean jumpDown = PlayerInput.isJumpKeyDown();
+
+		if (jumpDown && !jumpWasDown && jumpsLeft > 0) {
 			movementVector.y = -jumpPower;
-			isJumping = true;
+			jumpsLeft--;
 		}
-		
-		isJumping = true;
-		if(collisionMatrix[BOT] != null) isJumping = false;
+
+		jumpWasDown = jumpDown;
+		gasFloating = false;
 	}
 
 	@Override
@@ -48,10 +64,10 @@ public class Player extends PhysicsObject{
 		g.setColor(Color.YELLOW);
 		MyGraphics.fillRectWithOutline(g, (int)getX(), (int)getY(), width, height);
 		
-		if(Main.DEBUGGING) {
+		if (Main.DEBUGGING) {
 			for (int i = 0; i < closestMatrix.length; i++) {
 				Tile t = closestMatrix[i];
-				if(t != null) {
+				if (t != null) {
 					g.setColor(Color.RED);
 					g.drawRect((int)t.getX(), (int)t.getY(), t.getSize(), t.getSize());
 				}

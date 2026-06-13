@@ -1,5 +1,7 @@
 package platformer.code.gamelogic.level;
 
+import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +47,9 @@ public class Level {
 	private int tileSize;
 	private Tileset tileset;
 	public static float GRAVITY = 70;
+
+	private long waterTimer = 0;
+	private String statusText = "";
 
 	public Level(LevelData leveldata) {
 		this.leveldata = leveldata;
@@ -139,6 +144,8 @@ public class Level {
 		active = true;
 		playerDead = false;
 		playerWin = false;
+		waterTimer = 0;
+		statusText = "";
 	}
 
 	public void onPlayerDeath() {
@@ -155,6 +162,8 @@ public class Level {
 
 	public void update(float tslf) {
 		if (active) {
+			updateFluidEffects();
+
 			player.update(tslf);
 
 			if (map.getFullHeight() + 100 < player.getY())
@@ -179,6 +188,8 @@ public class Level {
 				}
 			}
 
+			updateFluidEffects();
+
 			for (int i = 0; i < enemies.length; i++) {
 				enemies[i].update(tslf);
 				if (player.getHitbox().isIntersecting(enemies[i].getHitbox())) {
@@ -189,6 +200,90 @@ public class Level {
 			map.update(tslf);
 			camera.update(tslf);
 		}
+	}
+
+	// precondition: player and map have been created
+	// postcondition: water and gas effects are applied to the player
+	private void updateFluidEffects() {
+		boolean touchingWater = playerTouchingWater();
+		boolean touchingGas = playerTouchingGas();
+
+		statusText = "";
+
+		if (touchingWater) {
+			if (waterTimer == 0) {
+				waterTimer = System.currentTimeMillis();
+			}
+
+			float secondsInWater = (System.currentTimeMillis() - waterTimer) / 1000.0f;
+			float newSpeedMultiplier = 1.0f - secondsInWater * 0.18f;
+
+			if (newSpeedMultiplier < 0.35f) {
+				newSpeedMultiplier = 0.35f;
+			}
+
+			player.speedMultiplier = newSpeedMultiplier;
+			statusText = "Water speed: " + (int)(newSpeedMultiplier * 100) + "%";
+		}
+		else {
+			waterTimer = 0;
+			player.speedMultiplier = 1;
+		}
+
+		if (touchingGas) {
+			player.gasFloating = true;
+
+			if (statusText.equals("")) {
+				statusText = "Gas: floating";
+			}
+			else {
+				statusText += "   Gas: floating";
+			}
+		}
+		else {
+			player.gasFloating = false;
+		}
+	}
+
+	// precondition: player and map have been created
+	// postcondition: returns true if the player is touching water
+	private boolean playerTouchingWater() {
+		for (int col = 0; col < map.getWidth(); col++) {
+			for (int row = 0; row < map.getHeight(); row++) {
+				Tile tile = map.getTiles()[col][row];
+
+				if (tile instanceof Water && playerOverlapsTile(tile)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	// precondition: player and map have been created
+	// postcondition: returns true if the player is touching gas
+	private boolean playerTouchingGas() {
+		for (int col = 0; col < map.getWidth(); col++) {
+			for (int row = 0; row < map.getHeight(); row++) {
+				Tile tile = map.getTiles()[col][row];
+
+				if (tile instanceof Gas && playerOverlapsTile(tile)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	// precondition: tile is a valid map tile
+	// postcondition: returns true if the player rectangle overlaps the tile rectangle
+	private boolean playerOverlapsTile(Tile tile) {
+		return player.getX() < tile.getX() + tile.getSize()
+			&& player.getX() + tileSize > tile.getX()
+			&& player.getY() < tile.getY() + tile.getSize()
+			&& player.getY() + tileSize > tile.getY();
 	}
 
 	// precondition: col and row are valid locations where water should start flowing
@@ -337,6 +432,12 @@ public class Level {
 				if (camera.isVisibleOnCamera(tile.getX(), tile.getY(), tile.getSize(), tile.getSize()))
 					tile.draw(g);
 			}
+		}
+
+		if (!statusText.equals("")) {
+			g.setColor(Color.WHITE);
+			g.setFont(new Font("Arial", Font.BOLD, 20));
+			g.drawString(statusText, (int)player.getX(), (int)player.getY() - 20);
 		}
 
 		for (int i = 0; i < enemies.length; i++) {
