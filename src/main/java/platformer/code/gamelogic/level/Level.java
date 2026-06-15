@@ -299,27 +299,29 @@ public class Level {
 			return;
 		}
 
-		if (row + 1 < tiles[col].length && !tiles[col][row + 1].isSolid() && !(tiles[col][row + 1] instanceof Water)) {
-			Water w = new Water(col, row, tileSize, tileset.getImage("Falling_water"), this, 0);
-			map.addTile(col, row, w);
+		boolean isFallingWater = fullness == 0;
+
+		// If water reaches the bottom edge, it should fall off the map.
+		// It should not spread left/right as if the map edge were a solid floor.
+		if (row + 1 >= tiles[col].length) {
+			addWaterTile(col, row, map, fullness);
+			return;
+		}
+
+		// If the tile below is open, water flows downward.
+		// The current tile only looks like Falling_water if it was already part of a falling stream.
+		if (!tiles[col][row + 1].isSolid() && !(tiles[col][row + 1] instanceof Water)) {
+			addWaterTile(col, row, map, fullness);
 			water(col, row + 1, map, 0);
 			return;
 		}
 
-		if (fullness == 0) {
+		// Once falling water hits a real surface, it becomes full water and can spread sideways.
+		if (isFallingWater) {
 			fullness = 3;
 		}
 
-		String imageName = "Full_water";
-		if (fullness == 2) {
-			imageName = "Half_water";
-		}
-		else if (fullness == 1) {
-			imageName = "Quarter_water";
-		}
-
-		Water w = new Water(col, row, tileSize, tileset.getImage(imageName), this, fullness);
-		map.addTile(col, row, w);
+		addWaterTile(col, row, map, fullness);
 
 		int nextFullness = fullness - 1;
 		if (nextFullness < 1) {
@@ -332,6 +334,30 @@ public class Level {
 
 		if (col - 1 >= 0 && !tiles[col - 1][row].isSolid() && !(tiles[col - 1][row] instanceof Water)) {
 			water(col - 1, row, map, nextFullness);
+		}
+	}
+
+	// precondition: col and row are valid map positions and fullness is 0, 1, 2, or 3
+	// postcondition: adds a water tile with the correct image for its fullness
+	private void addWaterTile(int col, int row, Map map, int fullness) {
+		Water w = new Water(col, row, tileSize, tileset.getImage(getWaterImageName(fullness)), this, fullness);
+		map.addTile(col, row, w);
+	}
+
+	// precondition: fullness is 0, 1, 2, or 3
+	// postcondition: returns the correct water image name for the given fullness
+	private String getWaterImageName(int fullness) {
+		if (fullness == 0) {
+			return "Falling_water";
+		}
+		else if (fullness == 2) {
+			return "Half_water";
+		}
+		else if (fullness == 1) {
+			return "Quarter_water";
+		}
+		else {
+			return "Full_water";
 		}
 	}
 
