@@ -31,6 +31,7 @@ private void addGas(int col, int row, Map map, int numSquaresToFill, ArrayList<G
 		int currentCol = currentGas.getCol();
 		int currentRow = currentGas.getRow();
 
+
 		// Order: up, up-left, up-right, left, right, down, down-left, down-right
 		int[] colChanges = {0, -1, 1, -1, 1, 0, -1, 1};
 		int[] rowChanges = {-1, -1, -1, 0, 0, 1, 1, 1};
